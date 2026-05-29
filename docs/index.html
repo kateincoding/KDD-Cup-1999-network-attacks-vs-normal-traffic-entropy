@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detección de anomalías en tráfico de red por entropía de Shannon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+window.MathJax = {tex: {inlineMath: [['$', '$']], displayMath: [['$$', '$$']]}, svg: {fontCache: 'global'}};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+:root {
+  --bg: #0e0f12;
+  --panel: #15171c;
+  --panel-2: #1b1e25;
+  --line: #262a33;
+  --text: #e6e8ed;
+  --muted: #9aa1ad;
+  --accent: #7cc4ff;
+  --accent-2: #ffb86b;
+  --good: #74e2a0;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; line-height: 1.65; font-size: 16px; }
+.container { max-width: 920px; margin: 0 auto; padding: 0 28px; }
+header.hero { padding: 96px 0 64px; border-bottom: 1px solid var(--line); }
+.tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 18px; }
+h1 { font-size: 44px; font-weight: 700; line-height: 1.15; margin: 0 0 18px; letter-spacing: -0.02em; }
+.lead { font-size: 19px; color: var(--muted); max-width: 720px; margin: 0 0 32px; }
+.authors { font-size: 14px; color: var(--muted); }
+.authors strong { color: var(--text); font-weight: 500; }
+.badges { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.badge { font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--panel); }
+.badge strong { color: var(--text); font-weight: 500; }
+section { padding: 64px 0; border-bottom: 1px solid var(--line); }
+section:last-of-type { border-bottom: none; }
+h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 8px; }
+h2 .num { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 14px; display: block; margin-bottom: 6px; }
+h3 { font-size: 19px; font-weight: 600; margin: 36px 0 12px; }
+p { margin: 0 0 16px; }
+code { font-family: 'JetBrains Mono', monospace; font-size: 13.5px; background: var(--panel-2); padding: 1px 6px; border-radius: 4px; color: var(--accent-2); }
+.eq { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 22px; margin: 18px 0; overflow-x: auto; }
+.fig { margin: 28px 0; }
+.fig img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); background: white; }
+.caption { font-size: 13.5px; color: var(--muted); margin-top: 10px; padding: 0 4px; }
+.caption strong { color: var(--text); font-weight: 500; }
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14.5px; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+td.num, th.num { text-align: right; font-family: 'JetBrains Mono', monospace; }
+.callout { background: var(--panel); border-left: 3px solid var(--accent); border-radius: 6px; padding: 16px 20px; margin: 22px 0; }
+.callout.good { border-left-color: var(--good); }
+.callout.warn { border-left-color: var(--accent-2); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.metric { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+.metric .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.metric .v { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 500; margin-top: 6px; }
+.metric .v.good { color: var(--good); }
+footer { padding: 48px 0 64px; text-align: center; color: var(--muted); font-size: 13.5px; }
+footer a { color: var(--accent); text-decoration: none; }
+ul { padding-left: 22px; margin: 0 0 16px; }
+li { margin-bottom: 6px; }
+.toc { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; margin: 28px 0; }
+.toc h4 { margin: 0 0 10px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
+.toc ol { margin: 0; padding-left: 22px; font-size: 14.5px; }
+.toc a { color: var(--text); text-decoration: none; }
+.toc a:hover { color: var(--accent); }
+@media (max-width: 640px) {
+  h1 { font-size: 32px; }
+  .lead { font-size: 17px; }
+  .grid-2 { grid-template-columns: 1fr; }
+  header.hero { padding: 64px 0 48px; }
+  section { padding: 48px 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="container">
+    <span class="tag">Detección de anomalías por teoría de la información</span>
+    <h1>Detectar ataques de red usando entropía de Shannon, no etiquetas</h1>
+    <p class="lead">Análisis sobre el dataset KDD Cup 1999 que parte de un principio simple: el tráfico malicioso colapsa o explota la diversidad estadística de los paquetes, y eso deja una firma medible en la entropía antes de necesitar un modelo supervisado.</p>
+    <p class="authors"><strong>Katherine Soto</strong> y <strong>Paulina Peralta</strong>. Estadística aplicada, La Salle.</p>
+    <div class="badges">
+      <span class="badge">Dataset <strong>494,021 conexiones</strong></span>
+      <span class="badge">Lenguaje <strong>R</strong></span>
+      <span class="badge">Test AUC <strong>0.9921</strong></span>
+      <span class="badge">Accuracy <strong>98.80 por ciento</strong></span>
+      <span class="badge">Gap train/test <strong>0.01 por ciento</strong></span>
+    </div>
+    <div class="toc">
+      <h4>Contenido</h4>
+      <ol>
+        <li><a href="#motivacion">Motivación desde AI safety</a></li>
+        <li><a href="#marco">Marco teórico, entropía e información mutua</a></li>
+        <li><a href="#datos">Dataset y limpieza</a></li>
+        <li><a href="#dist">Distribuciones y firmas por tipo de ataque</a></li>
+        <li><a href="#entropia">Entropía de Shannon por feature</a></li>
+        <li><a href="#mi">Información mutua para selección de variables</a></li>
+        <li><a href="#corr">Correlación y multicolinealidad</a></li>
+        <li><a href="#modelo">Modelo de regresión logística</a></li>
+        <li><a href="#resultados">Resultados y curva ROC</a></li>
+        <li><a href="#conclusion">Conclusiones y limitaciones</a></li>
+      </ol>
+    </div>
+  </div>
+</header>
+
+<section id="motivacion">
+  <div class="container">
+    <h2><span class="num">01</span>Motivación desde AI safety</h2>
+    <p>La pregunta que está detrás de este trabajo es la misma que aparece en monitorización de sistemas y en evaluación de modelos: cómo distinguir un comportamiento legítimo de uno adversarial cuando no hay un oráculo confiable, cuando los ataques son raros y cuando un atacante tiene incentivos para mimetizarse con la distribución base.</p>
+    <p>La intuición central es de teoría de la información. Un ataque de denegación de servicio reduce drásticamente la diversidad de los paquetes que envía, miles de SYN idénticos. Un escaneo de puertos hace lo contrario, explota la diversidad probando combinaciones nuevas. Ambos rompen el perfil entrópico del tráfico legítimo, aunque sus medias y varianzas puedan parecer normales.</p>
+    <p>Usar entropía como detector es atractivo por una razón concreta para safety: no necesita etiquetas y se calcula sobre ventanas en tiempo real. Funciona como una capa de alerta antes de que el clasificador supervisado vea siquiera el tráfico, y permite definir baselines de normalidad sobre los que cualquier desviación se vuelve auditable.</p>
+  </div>
+</section>
+
+<section id="marco">
+  <div class="container">
+    <h2><span class="num">02</span>Marco teórico</h2>
+
+    <h3>Entropía de Shannon</h3>
+    <p>La entropía mide la incertidumbre o desorden de una distribución de probabilidad sobre los valores que toma una variable. En el contexto de tráfico de red la calculamos por feature y por tipo de conexión, después de discretizar los valores en bins.</p>
+    <div class="eq">$$H(X) = -\sum_{i} p(x_i) \log_2 p(x_i)$$</div>
+    <p>La lectura es directa. Si H se acerca a cero, una sola realización domina la distribución, lo que corresponde a paquetes idénticos típicos de un flood. Si H se acerca al máximo teórico $\log_2(k)$ con $k$ bins, todos los valores son equiprobables, que es el patrón de un escaneo. La entropía media estable corresponde al perfil mixto de un servicio real con HTTP, DNS, SSH y FTP conviviendo.</p>
+    <p>La razón para preferir entropía sobre media o varianza es que un flood puede tener exactamente la misma media de bytes que el tráfico normal y aun así colapsar su entropía a cero. Lo que cambia bajo ataque no es la magnitud, es la diversidad.</p>
+
+    <h3>Información mutua</h3>
+    <p>Para seleccionar las features que realmente aportan señal sobre el label binario <code>is_attack</code> usamos información mutua, que cuantifica cuánta incertidumbre sobre Y se reduce al observar X.</p>
+    <div class="eq">$$I(X; Y) = H(X) + H(Y) - H(X, Y) = H(X) - H(X \mid Y)$$</div>
+    <p>Trabajamos con tres variantes implementadas en <code>FSelectorRcpp</code> porque cada una corrige un sesgo distinto.</p>
+    <table>
+      <thead><tr><th>Métrica</th><th>Definición</th><th>Qué corrige</th></tr></thead>
+      <tbody>
+        <tr><td><code>infogain</code></td><td>$I(X;Y)$</td><td>Versión base, sesgada hacia variables con muchos valores únicos.</td></tr>
+        <tr><td><code>gainratio</code></td><td>$I(X;Y) / H(X)$</td><td>Penaliza variables con entropía propia alta, por ejemplo identificadores.</td></tr>
+        <tr><td><code>symuncert</code></td><td>$2 I(X;Y) / (H(X) + H(Y))$</td><td>Simétrica, normalizada en [0, 1]. La más robusta para ranking.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="datos">
+  <div class="container">
+    <h2><span class="num">03</span>Dataset y limpieza</h2>
+    <p>El dataset KDD Cup 1999, subconjunto del diez por ciento, contiene 494,021 conexiones de red etiquetadas con 41 features numéricas y categóricas. Después de limpiar el label y agrupar los ataques en sus cuatro familias (DoS, Probe, R2L, U2R), la distribución de clases queda fuertemente desbalanceada.</p>
+    <table>
+      <thead><tr><th>Clase</th><th class="num">Instancias</th><th class="num">Porcentaje</th><th>Descripción</th></tr></thead>
+      <tbody>
+        <tr><td>dos</td><td class="num">391,458</td><td class="num">79.2</td><td>Floods tipo Neptune (SYN) y Smurf (ICMP)</td></tr>
+        <tr><td>normal</td><td class="num">97,278</td><td class="num">19.7</td><td>Tráfico legítimo</td></tr>
+        <tr><td>probe</td><td class="num">4,107</td><td class="num">0.83</td><td>Escaneos y reconocimiento</td></tr>
+        <tr><td>r2l</td><td class="num">1,126</td><td class="num">0.23</td><td>Remote to Local, intento de imitar tráfico normal</td></tr>
+        <tr><td>u2r</td><td class="num">52</td><td class="num">0.01</td><td>User to Root, escalada de privilegios</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <p style="margin:0"><strong>Punto importante para safety.</strong> Las clases más peligrosas (u2r, r2l) son las más raras. Cualquier métrica global está dominada por DoS, y un detector que parezca tener accuracy del 99 por ciento puede estar fallando casi por completo sobre las clases que más importan.</p>
+    </div>
+    <p>El resumen estadístico confirma la asimetría extrema del tráfico de red. <code>src_bytes</code> va de cero a valores millonarios, <code>serror_rate</code> tiene mediana cero en normal pero picos cerca de uno en DoS, y <code>count</code> llega a 511 conexiones por host en ventanas de dos segundos. Este perfil sesgado es exactamente el escenario donde la entropía supera a los estadísticos clásicos, no asume normalidad.</p>
+  </div>
+</section>
+
+<section id="dist">
+  <div class="container">
+    <h2><span class="num">04</span>Distribuciones y firmas por tipo de ataque</h2>
+    <p>Antes de calcular entropía explícitamente, las distribuciones por clase ya hacen evidente la estructura de la señal. Cada tipo de ataque deja una huella distinta sobre las features de red, y esa huella es lo que después medimos cuantitativamente.</p>
+
+    <div class="fig">
+      <img src="img/plot_15_1.png" alt="Distribución de tipos de ataque">
+      <p class="caption"><strong>Figura 1.</strong> Distribución de la variable <code>attack_type</code>. El desbalance es lo primero a tener en cuenta a la hora de leer cualquier métrica global del modelo. Las clases peligrosas (r2l, u2r) están en el límite de lo aprendible con métodos puramente estadísticos.</p>
+    </div>
+
+    <div class="fig">
+      <img src="img/plot_17_2.png" alt="Histogramas de src_bytes y dst_bytes por tipo">
+      <p class="caption"><strong>Figura 2.</strong> Histogramas de <code>src_bytes</code> y <code>dst_bytes</code> por tipo. DoS muestra una masa concentrada en un único bin, que es la firma visual de un flood. Probe presenta dispersión amplia. Normal muestra la mezcla esperable de servicios reales. Esta es la observación que motiva el uso de entropía como detector.</p>
+    </div>
+
+    <div class="fig">
+      <img src="img/plot_19_3.png" alt="Boxplots de serror_rate y count">
+      <p class="caption"><strong>Figura 3.</strong> Boxplots de <code>serror_rate</code> y <code>count</code>. La mediana de <code>serror_rate</code> en DoS está en uno, en normal está en cero. <code>count</code> en DoS y Probe llega a valores cercanos a 511, propios de barridos masivos. Una sola de estas variables ya separa visualmente la mayoría de los ataques DoS del tráfico legítimo.</p>
+    </div>
+  </div>
+</section>
+
+<section id="entropia">
+  <div class="container">
+    <h2><span class="num">05</span>Entropía de Shannon por feature</h2>
+    <p>Calculamos la entropía de cada feature numérica condicional al tipo de ataque, discretizando los valores en bins de igual ancho. El objetivo es construir una tabla donde cada celda responda a una pregunta concreta, cuánta diversidad tiene esta variable cuando estamos dentro de este tipo de tráfico.</p>
+
+    <div class="fig">
+      <img src="img/plot_26_4.png" alt="Heatmap de entropía por tipo y feature">
+      <p class="caption"><strong>Figura 4.</strong> Heatmap de entropía por feature y tipo de ataque. La fila <code>dos</code> es la más fría en <code>src_bytes</code> y <code>dst_bytes</code>, confirmando el colapso de diversidad en floods. La fila <code>u2r</code> es la más caliente, gran variedad de técnicas (buffer overflow, rootkit, exploits de perl) que evitan dejar una firma única.</p>
+    </div>
+
+    <div class="fig">
+      <img src="img/plot_28_5.png" alt="Comparativa de entropía por variable">
+      <p class="caption"><strong>Figura 5.</strong> Barras de entropía por tipo sobre features clave. Lectura útil para safety, las clases R2L y U2R tienen entropías muy próximas a las de tráfico normal en varias features, lo que explica por qué históricamente son las más difíciles de detectar. Se camuflan en la distribución base.</p>
+    </div>
+
+    <table>
+      <thead><tr><th>Tipo</th><th class="num">H(src_bytes)</th><th class="num">H(dst_bytes)</th><th>Interpretación</th></tr></thead>
+      <tbody>
+        <tr><td>dos</td><td class="num">0.052</td><td class="num">0.051</td><td>Flood envía paquetes idénticos</td></tr>
+        <tr><td>normal</td><td class="num">0.008</td><td class="num">0.014</td><td>Tráfico HTTP predecible</td></tr>
+        <tr><td>probe</td><td class="num">0.003</td><td class="num">0.051</td><td>Sondas iguales, destino variable</td></tr>
+        <tr><td>r2l</td><td class="num">0.307</td><td class="num">0.143</td><td>Moderada, imita tráfico normal</td></tr>
+        <tr><td>u2r</td><td class="num">1.640</td><td class="num">1.170</td><td>Máxima, técnicas heterogéneas</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="mi">
+  <div class="container">
+    <h2><span class="num">06</span>Información mutua para selección de variables</h2>
+    <p>Con la entropía caracterizada por clase, el siguiente paso es medir cuánta información aporta cada feature sobre el label binario <code>is_attack</code>. Esto convierte el problema de seleccionar variables en un problema cuantitativo, las features con mayor información mutua son las que más reducen la incertidumbre sobre si una conexión es maliciosa.</p>
+
+    <div class="fig">
+      <img src="img/plot_32_6.png" alt="Ranking de Information Gain">
+      <p class="caption"><strong>Figura 6.</strong> Ranking de Information Gain frente a <code>is_attack</code>. Las variables que dominan son <code>count</code>, <code>dst_host_count</code>, <code>srv_count</code>, <code>logged_in</code> y <code>serror_rate</code>. Reflejan las dos firmas dominantes, ráfagas masivas en ventanas cortas y ausencia de autenticación.</p>
+    </div>
+
+    <div class="fig">
+      <img src="img/plot_35_7.png" alt="Ranking de Gain Ratio">
+      <p class="caption"><strong>Figura 7.</strong> Gain Ratio. Normaliza el infogain por H(X), de modo que castiga variables que parecen informativas solo por tener entropía propia alta. El ranking se mantiene estable, lo que valida que las variables top no son artefactos de cardinalidad.</p>
+    </div>
+
+    <div class="fig">
+      <img src="img/plot_38_8.png" alt="Ranking de Symmetrical Uncertainty">
+      <p class="caption"><strong>Figura 8.</strong> Symmetrical Uncertainty. Es la métrica más robusta de las tres porque está normalizada en [0, 1] y es simétrica. Los tres rankings convergen en el mismo grupo de variables top, lo que da confianza en que la señal no es un artefacto de la métrica elegida.</p>
+    </div>
+
+    <p>Las variables que descartamos por información mutua cercana a cero respecto al label binario son <code>duration</code>, <code>wrong_fragment</code>, <code>num_failed_logins</code> y <code>hot</code>. Mantenerlas en el modelo solo añadiría ruido y varianza a los coeficientes.</p>
+  </div>
+</section>
+
+<section id="corr">
+  <div class="container">
+    <h2><span class="num">07</span>Correlación y multicolinealidad</h2>
+    <p>La selección por información mutua identifica variables predictivas, pero falta el chequeo de redundancia. Dos features muy informativas pueden estar midiendo lo mismo y desestabilizar los coeficientes del modelo.</p>
+
+    <div class="fig">
+      <img src="img/plot_42_9.png" alt="Matriz de correlación">
+      <p class="caption"><strong>Figura 9.</strong> Matriz de correlación de Pearson. Las correlaciones positivas fuertes con <code>is_attack_num</code> son <code>count</code> (0.75), <code>dst_host_count</code> (0.64) y <code>srv_count</code> (0.57). La negativa más fuerte es <code>logged_in</code> (-0.80), el atacante raramente abre sesión autenticada.</p>
+    </div>
+
+    <div class="fig">
+      <img src="img/plot_44_10.png" alt="Pairs plot de variables seleccionadas">
+      <p class="caption"><strong>Figura 10.</strong> Pairs plot de las variables candidatas finales. La detección visual de redundancia es la pareja <code>serror_rate</code> y <code>dst_host_serror_rate</code>, con r casi uno. Se conservan ambas porque, aunque correlacionadas, capturan ventanas distintas, instantánea frente a historial del host.</p>
+    </div>
+
+    <p>El conjunto final de variables que entran al modelo es <code>serror_rate</code>, <code>dst_host_serror_rate</code>, <code>src_bytes</code>, <code>same_srv_rate</code> y <code>count</code>. Las tres metodologías (entropía, información mutua y correlación) convergen sobre este subconjunto.</p>
+  </div>
+</section>
+
+<section id="modelo">
+  <div class="container">
+    <h2><span class="num">08</span>Modelo de regresión logística</h2>
+    <p>El detector final es una regresión logística binaria sobre <code>is_attack</code>. La elección no es por capacidad bruta, es por interpretabilidad. Cada coeficiente tiene una lectura directa sobre cómo cada feature empuja la probabilidad de ataque. Para una capa de detección que se va a auditar, eso vale más que un punto extra de accuracy.</p>
+    <p>Partición estratificada 80/20 con <code>createDataPartition</code> de caret. Entrenamos tres modelos en orden creciente de complejidad para verificar que cada variable añadida aporta información genuina y no solo ajuste.</p>
+
+    <table>
+      <thead><tr><th>Modelo</th><th>Variables</th><th class="num">AIC</th><th>Lectura</th></tr></thead>
+      <tbody>
+        <tr><td><code>mrl0</code></td><td><code>serror_rate</code></td><td class="num">359,221</td><td>Base. Una sola variable, ya separa una parte importante.</td></tr>
+        <tr><td><code>mrl1</code></td><td>+ <code>src_bytes</code></td><td class="num">359,190</td><td><code>src_bytes</code> significativa (p = 0.014).</td></tr>
+        <tr><td><code>mrl2</code></td><td>5 variables seleccionadas</td><td class="num">38,031</td><td>Todos los coeficientes con p menor que 2e-16. Caída drástica de AIC.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="fig">
+      <img src="img/plot_51_11.png" alt="Curva sigmoide del modelo base">
+      <p class="caption"><strong>Figura 11.</strong> Curva sigmoide del modelo base, solo <code>serror_rate</code>. Detalle relevante, la curva no empieza en cero. El intercepto es 1.157, lo que pone la probabilidad base en torno al 76 por ciento. No es un error, es la consecuencia directa del desbalance del dataset (80.3 por ciento de ataques). Cuando se evalúa un detector entrenado sobre datos sesgados, esta clase de detalles cambia por completo la lectura de la curva.</p>
+    </div>
+  </div>
+</section>
+
+<section id="resultados">
+  <div class="container">
+    <h2><span class="num">09</span>Resultados y curva ROC</h2>
+    <p>Las métricas en train y test son prácticamente idénticas, lo que descarta sobreajuste. La diferencia de accuracy es de 0.01 por ciento y la de kappa es 0.003.</p>
+
+    <div class="grid-2">
+      <div class="metric"><div class="k">Accuracy (test)</div><div class="v good">98.80 por ciento</div></div>
+      <div class="metric"><div class="k">AUC</div><div class="v good">0.9921</div></div>
+      <div class="metric"><div class="k">Sensitivity</div><div class="v">98.73 por ciento</div></div>
+      <div class="metric"><div class="k">Specificity</div><div class="v">99.08 por ciento</div></div>
+      <div class="metric"><div class="k">Kappa</div><div class="v">0.9625</div></div>
+      <div class="metric"><div class="k">Gap train test</div><div class="v">0.01 por ciento</div></div>
+    </div>
+
+    <div class="fig">
+      <img src="img/plot_62_12.png" alt="Curva ROC">
+      <p class="caption"><strong>Figura 12.</strong> Curva ROC sobre el conjunto de test. El AUC de 0.9921 indica capacidad discriminativa excelente a cualquier umbral. La diagonal punteada es la referencia de clasificador aleatorio. El punto óptimo por Youden Index permite ajustar el umbral en función de la tolerancia operativa. En seguridad normalmente se prefiere mayor sensitivity aunque suba la tasa de falsos positivos, porque el coste de un ataque no detectado es mucho mayor que el de una alerta revisable.</p>
+    </div>
+
+    <div class="callout good">
+      <p style="margin:0"><strong>Lectura honesta del número.</strong> El 98.80 por ciento de accuracy global está dominado por DoS, que es la clase mayoritaria. La sensitivity sobre u2r y r2l por separado sería mucho menor. Reportar accuracy global sin desglosar por clase en un sistema de seguridad es exactamente el tipo de métrica que oculta los fallos que más importan.</p>
+    </div>
+  </div>
+</section>
+
+<section id="conclusion">
+  <div class="container">
+    <h2><span class="num">10</span>Conclusiones y limitaciones</h2>
+
+    <h3>Lo que funciona</h3>
+    <p>La entropía de Shannon caracteriza correctamente la firma de cada familia de ataque. DoS colapsa la entropía, Probe la maximiza, U2R la dispersa por usar técnicas heterogéneas. Esta caracterización se sostiene sin necesidad de un modelo supervisado, y eso la hace utilizable como capa de alerta temprana sobre tráfico no etiquetado.</p>
+    <p>La selección de variables por información mutua converge con la correlación de Pearson y produce un subconjunto pequeño, cinco features, que es suficiente para una regresión logística que generaliza bien.</p>
+
+    <h3>Limitaciones reales</h3>
+    <ul>
+      <li>Las clases U2R y R2L están subrepresentadas (52 y 1,126 instancias). La métrica global esconde que sobre estas clases la detección es mucho peor. Un análisis honesto requiere reportar métricas estratificadas por tipo.</li>
+      <li>Existe colinealidad fuerte entre <code>serror_rate</code> y <code>dst_host_serror_rate</code> (r casi uno). Un modelo ridge o eliminación por VIF reduciría la varianza de los coeficientes.</li>
+      <li>La regresión logística es lineal en logit. R2L y U2R no son linealmente separables. Random Forest o XGBoost capturarían mejor las interacciones, a coste de interpretabilidad.</li>
+    </ul>
+
+    <h3>Extensión natural hacia AI safety</h3>
+    <p>La idea más interesante de cara a un sistema real es el detector de entropía deslizante, calcular H(X) sobre ventanas temporales y alertar cuando la entropía cae bajo el baseline de normalidad. No requiere etiquetas, no requiere un modelo entrenado por adelantado, y produce una señal interpretable que se puede auditar. Es el tipo de capa que tiene sentido tener antes de cualquier clasificador supervisado, porque captura desviaciones distribucionales que un modelo entrenado sobre la distribución antigua no vería.</p>
+    <p>Más en general, este proyecto es un ejercicio de algo que importa para safety. Las métricas globales sobre datos desbalanceados son fáciles de inflar y fáciles de creer. Lo útil es desglosar la métrica por clase, entender qué firma estadística se está usando para decidir, y dejar trazas auditables del por qué de cada alerta.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Katherine Soto y Paulina Peralta. La Salle, 2025.</p>
+    <p><a href="https://github.com/kateincoding/KDD-Cup-1999-network-attacks-vs-normal-traffic-entropy">Código y notebook completo en GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
